@@ -71,6 +71,16 @@ class AlbumTracklistRefreshTest {
                     ),
                 )
             }
+            // Saved song that names this album but was never mapped to it: refresh must keep it.
+            dao.insert(
+                SongEntity(
+                    id = UNMAPPED_ID,
+                    title = UNMAPPED_ID,
+                    duration = 100,
+                    albumId = ALBUM_ID,
+                    albumName = "Album",
+                ),
+            )
             // This song belongs to another album and is not mapped to the album being refreshed.
             dao.insert(
                 SongEntity(
@@ -86,6 +96,7 @@ class AlbumTracklistRefreshTest {
             dao.insert(SongAlbumMap(songId = OPENING_ID, albumId = ALBUM_ID, index = 0))
             dao.insert(SongAlbumMap(songId = INTERLUDE_ID, albumId = ALBUM_ID, index = 1))
             dao.insert(SongAlbumMap(songId = FINALE_ID, albumId = ALBUM_ID, index = 2))
+            dao.insert(SongAlbumMap(songId = STALE_ONLY_ID, albumId = ALBUM_ID, index = 3))
             // The same song legitimately belongs to another album as well.
             dao.insert(SongAlbumMap(songId = INTERLUDE_ID, albumId = OTHER_ALBUM_ID, index = 0))
 
@@ -117,6 +128,8 @@ class AlbumTracklistRefreshTest {
             assertEquals("Other album", dao.getSongByIdBlocking(INTERLUDE_ID)?.albumName)
             assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.albumId)
             assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.albumName)
+            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(UNMAPPED_ID)?.albumId)
+            assertEquals("Album", dao.getSongByIdBlocking(UNMAPPED_ID)?.albumName)
             assertEquals(ALBUM_ID, dao.getSongByIdBlocking(OPENING_ID)?.albumId)
             assertEquals(ALBUM_ID, dao.getSongByIdBlocking(FINALE_ID)?.albumId)
             assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(OTHER_ONLY_ID)?.albumId)
@@ -239,6 +252,7 @@ class AlbumTracklistRefreshTest {
         const val OTHER_ALBUM_ID = "other-album"
         const val OTHER_ONLY_ID = "other-only"
         const val STALE_ONLY_ID = "stale-only"
+        const val UNMAPPED_ID = "unmapped"
         const val OPENING_ID = "opening"
         const val INTERLUDE_ID = "interlude"
         const val REPLACEMENT_ID = "replacement"

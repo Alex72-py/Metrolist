@@ -1883,12 +1883,13 @@ interface DatabaseDao {
                 LIMIT 1
             )
         WHERE albumId = :albumId
-          AND id NOT IN (
-              SELECT songId FROM song_album_map WHERE albumId = :albumId
-          )
+          AND id IN (:songIds)
         """,
     )
-    fun clearStaleSongAlbumIds(albumId: String)
+    fun clearStaleSongAlbumIds(albumId: String, songIds: List<String>)
+
+    @Query("SELECT songId FROM song_album_map WHERE albumId = :albumId")
+    fun mappedSongIds(albumId: String): List<String>
 
     @Transaction
     fun update(
@@ -1915,6 +1916,7 @@ interface DatabaseDao {
         )
         // Complete snapshot accepted: make this album's mappings match it exactly.
         // Scoped to this album; song rows and other albums' mappings are untouched.
+        val previousSongIds = mappedSongIds(albumPage.album.browseId)
         deleteSongAlbumMaps(albumPage.album.browseId)
         albumPage.songs
             .map(SongItem::toMediaMetadata)
@@ -1937,8 +1939,13 @@ interface DatabaseDao {
                 )
             }.forEach(::upsert)
 
-        // Removed tracks may retain this albumId in SongEntity even after their mapping is gone.
-        clearStaleSongAlbumIds(albumPage.album.browseId)
+        // Songs whose mapping was removed may retain this albumId in SongEntity. Songs that
+        // were never mapped to this album are left alone.
+        val keptSongIds = albumPage.songs.map { it.id }.toSet()
+        previousSongIds
+            .filterNot(keptSongIds::contains)
+            .chunked(500)
+            .forEach { clearStaleSongAlbumIds(albumPage.album.browseId, it) }
 
         albumPage.album.artists?.let { artists ->
             // Recreate album artists
