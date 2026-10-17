@@ -563,6 +563,7 @@ object YouTube {
     ): AlbumSongsPage {
         val chunks = mutableListOf<List<MusicShelfRenderer.Content>>()
         val tokens = linkedSetOf<String>()
+        var sectionContinuations: List<Continuation>? = null
 
         fun addToken(token: String?) {
             val value = checkNotNull(token) { "Incomplete album tracklist: malformed continuation" }
@@ -594,13 +595,12 @@ object YouTube {
                 ?.secondaryContents?.sectionListRenderer
                 ?: response.contents?.singleColumnBrowseResultsRenderer
                     ?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
-            // Section-list continuations paginate the outer layout, not the album track shelf.
-            // Only shelf/row continuation tokens can safely advance the tracklist.
             addSections(sections?.contents)
+            sectionContinuations = sections?.continuations
         } else {
             response.continuationContents?.sectionListContinuation?.let {
-                // Ignore section-level tokens; they are not track-shelf continuations.
                 addSections(it.contents)
+                sectionContinuations = it.continuations
             }
             response.continuationContents?.musicPlaylistShelfContinuation?.let {
                 addShelf(it.contents, it.continuations)
@@ -612,6 +612,11 @@ object YouTube {
                 action.appendContinuationItemsAction?.let { addShelf(it.continuationItems, null) }
             }
         }
+
+        // Prefer track-shelf continuations when present. Some section-list pages expose
+        // the only continuation at section level, and that token is needed to finish the
+        // tracklist. Never merge both streams: they can point to different pages.
+        if (tokens.isEmpty()) addContinuations(sectionContinuations)
         check(chunks.isNotEmpty()) { "Incomplete album tracklist: missing track shelf" }
 
         // Do not use getItems()/mapNotNull here: both can silently discard source rows.
