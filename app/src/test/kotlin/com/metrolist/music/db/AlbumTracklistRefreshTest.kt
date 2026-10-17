@@ -60,7 +60,7 @@ class AlbumTracklistRefreshTest {
             val otherAlbum = AlbumEntity(id = OTHER_ALBUM_ID, title = "Other album", songCount = 1, duration = 100)
             dao.insert(album)
             dao.insert(otherAlbum)
-            listOf(OPENING_ID, INTERLUDE_ID, FINALE_ID, REPLACEMENT_ID).forEach { songId ->
+            listOf(OPENING_ID, INTERLUDE_ID, FINALE_ID, REPLACEMENT_ID, STALE_ONLY_ID).forEach { songId ->
                 dao.insert(
                     SongEntity(
                         id = songId,
@@ -113,7 +113,10 @@ class AlbumTracklistRefreshTest {
 
             // The stale song row and its mapping on the other album both survive.
             assertNotNull(dao.getSongByIdBlocking(INTERLUDE_ID))
-            assertNull(dao.getSongByIdBlocking(INTERLUDE_ID)?.albumId)
+            assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(INTERLUDE_ID)?.albumId)
+            assertEquals("Other album", dao.getSongByIdBlocking(INTERLUDE_ID)?.albumName)
+            assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.albumId)
+            assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.albumName)
             assertEquals(ALBUM_ID, dao.getSongByIdBlocking(OPENING_ID)?.albumId)
             assertEquals(ALBUM_ID, dao.getSongByIdBlocking(FINALE_ID)?.albumId)
             assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(OTHER_ONLY_ID)?.albumId)
@@ -235,6 +238,7 @@ class AlbumTracklistRefreshTest {
         const val ALBUM_ID = "album"
         const val OTHER_ALBUM_ID = "other-album"
         const val OTHER_ONLY_ID = "other-only"
+        const val STALE_ONLY_ID = "stale-only"
         const val OPENING_ID = "opening"
         const val INTERLUDE_ID = "interlude"
         const val REPLACEMENT_ID = "replacement"
