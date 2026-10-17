@@ -613,10 +613,6 @@ object YouTube {
             }
         }
 
-        // Prefer track-shelf continuations when present. Some section-list pages expose
-        // the only continuation at section level, and that token is needed to finish the
-        // tracklist. Never merge both streams: they can point to different pages.
-        if (tokens.isEmpty()) addContinuations(sectionContinuations)
         check(chunks.isNotEmpty()) { "Incomplete album tracklist: missing track shelf" }
 
         // Do not use getItems()/mapNotNull here: both can silently discard source rows.
@@ -637,6 +633,10 @@ object YouTube {
                 }
             }
         }
+        // Prefer track-shelf or inline row continuations when present. Some section-list
+        // pages expose the only continuation at section level, which is needed to finish
+        // the tracklist. Never merge both streams: they can point to different pages.
+        if (tokens.isEmpty()) addContinuations(sectionContinuations)
         check(tokens.size <= 1) { "Incomplete album tracklist: conflicting continuations" }
         check(songs.map { it.id }.distinct().size == songs.size) {
             "Incomplete album tracklist: duplicate track"
