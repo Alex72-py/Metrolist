@@ -28,8 +28,8 @@ import org.robolectric.annotation.Config
 
 /**
  * Album refreshes must not overwrite a cached tracklist with an empty or shorter,
- * potentially incomplete snapshot. Removing mappings for songs absent from an
- * accepted snapshot is intentionally deferred (issue #4461).
+ * potentially incomplete snapshot. An accepted snapshot makes the album's mappings
+ * match it exactly, without touching song rows or other albums' mappings (issue #4461).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -52,7 +52,7 @@ class AlbumTracklistRefreshTest {
     }
 
     @Test
-    fun `album refresh upserts incoming tracks without deleting existing mappings`() =
+    fun `album refresh removes stale mappings for this album only`() =
         runBlocking {
             val dao = database.dao
             val album = AlbumEntity(id = ALBUM_ID, title = "Album", songCount = 3, duration = 300)
@@ -77,19 +77,14 @@ class AlbumTracklistRefreshTest {
                 artists = emptyList(),
             )
 
-            // Stale mappings are intentionally retained by this safety-only change.
-            val expectedSongs = setOf(OPENING_ID, INTERLUDE_ID, REPLACEMENT_ID, FINALE_ID)
+            // Mappings now match the refreshed tracklist exactly, in order.
             assertEquals(
-                expectedSongs,
-                dao.albumSongs(ALBUM_ID, limit = 10, offset = 0).map { it.id }.toSet(),
+                listOf(OPENING_ID, REPLACEMENT_ID, FINALE_ID),
+                dao.albumSongs(ALBUM_ID, limit = 10, offset = 0).map { it.id },
             )
-            val albumWithSongs = dao.albumWithSongs(ALBUM_ID).first()
-            assertEquals(expectedSongs, albumWithSongs!!.songs.map { it.id }.toSet())
-            // Album metadata reflects the accepted incoming snapshot, even though
-            // stale mappings are not deleted by this change.
-            assertEquals(3, albumWithSongs.album.songCount)
-            // Stale mappings remain, so their count can exceed album.songCount.
-            // That must not block a later same-sized refresh from updating metadata.
+            assertEquals(3, dao.albumWithSongs(ALBUM_ID).first()!!.album.songCount)
+
+            // A later same-sized refresh still applies.
             dao.update(
                 album = album,
                 albumPage = albumPage(OPENING_ID, REPLACEMENT_ID, FINALE_ID, title = "Updated album"),
@@ -97,12 +92,47 @@ class AlbumTracklistRefreshTest {
             )
             assertEquals("Updated album", dao.albumWithSongs(ALBUM_ID).first()!!.album.title)
 
-            // The song row and its mapping on the other album both survive.
+            // The stale song row and its mapping on the other album both survive.
             assertNotNull(dao.getSongByIdBlocking(INTERLUDE_ID))
             assertEquals(
                 listOf(INTERLUDE_ID),
                 dao.albumSongs(OTHER_ALBUM_ID, limit = 10, offset = 0).map { it.id },
             )
+        }
+
+    @Test
+    fun `album refresh keeps shared songs mapped to both albums with per-album order`() =
+        runBlocking {
+            val dao = database.dao
+            val album = AlbumEntity(id = ALBUM_ID, title = "Album", songCount = 2, duration = 200)
+            val otherAlbum = AlbumEntity(id = OTHER_ALBUM_ID, title = "Other album", songCount = 2, duration = 200)
+            dao.insert(album)
+            dao.insert(otherAlbum)
+            listOf(OPENING_ID, FINALE_ID).forEach { songId ->
+                dao.insert(SongEntity(id = songId, title = songId, duration = 100))
+            }
+            dao.insert(SongAlbumMap(songId = OPENING_ID, albumId = ALBUM_ID, index = 0))
+            dao.insert(SongAlbumMap(songId = FINALE_ID, albumId = ALBUM_ID, index = 1))
+            dao.insert(SongAlbumMap(songId = FINALE_ID, albumId = OTHER_ALBUM_ID, index = 0))
+            dao.insert(SongAlbumMap(songId = OPENING_ID, albumId = OTHER_ALBUM_ID, index = 1))
+
+            dao.update(
+                album = album,
+                albumPage = albumPage(FINALE_ID, OPENING_ID),
+                artists = emptyList(),
+            )
+
+            assertEquals(
+                listOf(FINALE_ID, OPENING_ID),
+                dao.albumSongs(ALBUM_ID, limit = 10, offset = 0).map { it.id },
+            )
+            // The other album keeps both shared songs with its own order.
+            assertEquals(
+                listOf(FINALE_ID, OPENING_ID),
+                dao.albumSongs(OTHER_ALBUM_ID, limit = 10, offset = 0).map { it.id },
+            )
+            assertNotNull(dao.getSongByIdBlocking(OPENING_ID))
+            assertNotNull(dao.getSongByIdBlocking(FINALE_ID))
         }
 
     @Test

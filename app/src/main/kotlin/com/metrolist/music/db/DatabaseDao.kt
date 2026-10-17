@@ -1861,6 +1861,9 @@ interface DatabaseDao {
     @Query("SELECT COALESCE((SELECT songCount FROM album WHERE id = :albumId), 0)")
     fun cachedAlbumSongCount(albumId: String): Int
 
+    @Query("DELETE FROM song_album_map WHERE albumId = :albumId")
+    fun deleteSongAlbumMaps(albumId: String)
+
     @Transaction
     fun update(
         album: AlbumEntity,
@@ -1884,6 +1887,9 @@ interface DatabaseDao {
                 explicit = albumPage.album.explicit || albumPage.songs.any { it.explicit },
             ),
         )
+        // Complete snapshot accepted: make this album's mappings match it exactly.
+        // Scoped to this album; song rows and other albums' mappings are untouched.
+        deleteSongAlbumMaps(albumPage.album.browseId)
         albumPage.songs
             .map(SongItem::toMediaMetadata)
             .onEach(::insert)
