@@ -71,6 +71,16 @@ class AlbumTracklistRefreshTest {
                     ),
                 )
             }
+            // This song belongs to another album and is not mapped to the album being refreshed.
+            dao.insert(
+                SongEntity(
+                    id = OTHER_ONLY_ID,
+                    title = OTHER_ONLY_ID,
+                    duration = 100,
+                    albumId = OTHER_ALBUM_ID,
+                    albumName = "Other album",
+                ),
+            )
             // Partial tracklist cached while the release was still publishing:
             // a provisional interlude sits where the finale belongs.
             dao.insert(SongAlbumMap(songId = OPENING_ID, albumId = ALBUM_ID, index = 0))
@@ -104,6 +114,9 @@ class AlbumTracklistRefreshTest {
             // The stale song row and its mapping on the other album both survive.
             assertNotNull(dao.getSongByIdBlocking(INTERLUDE_ID))
             assertNull(dao.getSongByIdBlocking(INTERLUDE_ID)?.albumId)
+            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(OPENING_ID)?.albumId)
+            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(FINALE_ID)?.albumId)
+            assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(OTHER_ONLY_ID)?.albumId)
             assertEquals(
                 listOf(INTERLUDE_ID),
                 dao.albumSongs(OTHER_ALBUM_ID, limit = 10, offset = 0).map { it.id },
@@ -221,6 +234,7 @@ class AlbumTracklistRefreshTest {
     private companion object {
         const val ALBUM_ID = "album"
         const val OTHER_ALBUM_ID = "other-album"
+        const val OTHER_ONLY_ID = "other-only"
         const val OPENING_ID = "opening"
         const val INTERLUDE_ID = "interlude"
         const val REPLACEMENT_ID = "replacement"
