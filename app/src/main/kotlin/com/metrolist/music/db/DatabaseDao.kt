@@ -1864,6 +1864,18 @@ interface DatabaseDao {
     @Query("DELETE FROM song_album_map WHERE albumId = :albumId")
     fun deleteSongAlbumMaps(albumId: String)
 
+    @Query(
+        """
+        UPDATE song
+        SET albumId = NULL
+        WHERE albumId = :albumId
+          AND id NOT IN (
+              SELECT songId FROM song_album_map WHERE albumId = :albumId
+          )
+        """,
+    )
+    fun clearStaleSongAlbumIds(albumId: String)
+
     @Transaction
     fun update(
         album: AlbumEntity,
@@ -1910,6 +1922,9 @@ interface DatabaseDao {
                     index = index,
                 )
             }.forEach(::upsert)
+
+        // Removed tracks may retain this albumId in SongEntity even after their mapping is gone.
+        clearStaleSongAlbumIds(albumPage.album.browseId)
 
         albumPage.album.artists?.let { artists ->
             // Recreate album artists
