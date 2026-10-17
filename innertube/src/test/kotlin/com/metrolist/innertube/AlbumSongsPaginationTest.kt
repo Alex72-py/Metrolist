@@ -55,6 +55,17 @@ class AlbumSongsPaginationTest {
     }
 
     @Test
+    fun `section-level continuation does not conflict with track continuation`() = runBlocking {
+        val response = initial(listOf(track("a")), next = "track-page", sectionNext = "section-page")
+        val (result, tokens) = runPages(
+            response,
+            append(listOf(track("b"))),
+        )
+        assertEquals(listOf("a", "b"), result.getOrThrow().map { it.id })
+        assertEquals(listOf(null, "track-page"), tokens)
+    }
+
+    @Test
     fun `section list continuation shelves are traversed`() = runBlocking {
         val section = """{"responseContext":{},"continuationContents":{"sectionListContinuation":{
             "contents":[{"musicShelfRenderer":{"contents":[${track("b")}]}}],
@@ -190,11 +201,18 @@ class AlbumSongsPaginationTest {
         }
     }
 
-    private fun initial(rows: List<String>, next: String? = null): String = """{
+    private fun initial(
+        rows: List<String>,
+        next: String? = null,
+        sectionNext: String? = null,
+    ): String = """{
         "responseContext":{},"contents":{"twoColumnBrowseResultsRenderer":{
-            "secondaryContents":{"sectionListRenderer":{"contents":[{
-                "musicPlaylistShelfRenderer":{"contents":[${rows.joinToString(",")}],"continuations":${continuations(next)}}
-            }]}}
+            "secondaryContents":{"sectionListRenderer":{
+                "contents":[{
+                    "musicPlaylistShelfRenderer":{"contents":[${rows.joinToString(",")}],"continuations":${continuations(next)}}
+                }],
+                "continuations":${continuations(sectionNext)}
+            }}
         }}
     }"""
 
