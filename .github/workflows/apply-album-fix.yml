@@ -1,0 +1,67 @@
+name: Apply album fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-album-fix
+  cancel-in-progress: false
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/album-tracklist-stale-mappings
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Apply DAO patch
+        run: python3 .github/scripts/apply_album_fix.py
+
+      - name: Show diff
+        run: git diff --stat && git diff
+
+      - name: Run regression and related tests
+        run: >-
+          ./gradlew --console=plain :app:testFossDebugUnitTest
+          --tests "com.metrolist.music.db.AlbumTracklistRefreshTest"
+          --tests "com.metrolist.music.db.SongMetadataEditingTest"
+          --tests "com.metrolist.music.db.ArtistPageCacheTest"
+          --tests "com.metrolist.music.db.AndroidAutoDatabasePaginationTest"
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: album-fix-test-reports
+          path: |
+            app/build/reports/tests/testFossDebugUnitTest
+            app/build/test-results/testFossDebugUnitTest
+          if-no-files-found: ignore
+
+      - name: Commit and push fix only after tests pass
+        run: |
+          git config user.name "Alex72-py"
+          git config user.email "aquibmasud7@gmail.com"
+          git add app/src/main/kotlin/com/metrolist/music/db/DatabaseDao.kt
+          if git diff --cached --quiet; then
+            echo "No DAO change to commit"
+            exit 1
+          fi
+          git commit -m "fix(db): prune stale album track mappings on refresh"
+          git push origin HEAD:fix/album-tracklist-stale-mappings
