@@ -66,6 +66,26 @@ class AlbumSongsPaginationTest {
     }
 
     @Test
+    fun `track shelf continuation takes precedence over section continuation`() = runBlocking {
+        val mixed = """{"responseContext":{},"continuationContents":{
+            "sectionListContinuation":{
+                "contents":[{"musicShelfRenderer":{"contents":[${track("b")}]}}],
+                "continuations":${continuations("section-page")}
+            },
+            "musicPlaylistShelfContinuation":{
+                "contents":[],"continuations":${continuations("track-page")}
+            }
+        }}"""
+        val (result, tokens) = runPages(
+            initial(listOf(track("a")), "one"),
+            mixed,
+            append(listOf(track("c"))),
+        )
+        assertEquals(listOf("a", "b", "c"), result.getOrThrow().map { it.id })
+        assertEquals(listOf(null, "one", "track-page"), tokens)
+    }
+
+    @Test
     fun `section list continuation shelves are traversed`() = runBlocking {
         val section = """{"responseContext":{},"continuationContents":{"sectionListContinuation":{
             "contents":[{"musicShelfRenderer":{"contents":[${track("b")}]}}],
