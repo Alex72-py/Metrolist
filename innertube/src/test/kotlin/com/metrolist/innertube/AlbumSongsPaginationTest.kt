@@ -55,6 +55,14 @@ class AlbumSongsPaginationTest {
     }
 
     @Test
+    fun `inline row continuation takes precedence over section continuation`() = runBlocking {
+        val response = initial(listOf(track("a"), marker("row-page")), sectionNext = "section-page")
+        val (result, tokens) = runPages(response, append(listOf(track("b"))))
+        assertEquals(listOf("a", "b"), result.getOrThrow().map { it.id })
+        assertEquals(listOf(null, "row-page"), tokens)
+    }
+
+    @Test
     fun `section-level continuation does not conflict with track continuation`() = runBlocking {
         val response = initial(listOf(track("a")), next = "track-page", sectionNext = "section-page")
         val (result, tokens) = runPages(
