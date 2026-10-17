@@ -594,12 +594,13 @@ object YouTube {
                 ?.secondaryContents?.sectionListRenderer
                 ?: response.contents?.singleColumnBrowseResultsRenderer
                     ?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
+            // Section-list continuations paginate the outer layout, not the album track shelf.
+            // Only shelf/row continuation tokens can safely advance the tracklist.
             addSections(sections?.contents)
-            addContinuations(sections?.continuations)
         } else {
             response.continuationContents?.sectionListContinuation?.let {
+                // Ignore section-level tokens; they are not track-shelf continuations.
                 addSections(it.contents)
-                addContinuations(it.continuations)
             }
             response.continuationContents?.musicPlaylistShelfContinuation?.let {
                 addShelf(it.contents, it.continuations)
