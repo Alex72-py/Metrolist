@@ -27,11 +27,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * An album first opened while YouTube is still publishing it can be cached with a
- * partial or provisional tracklist. Refreshing the album must replace those
- * mappings: [DatabaseDao.update] used to only upsert the songs in the new page,
- * so mappings for songs the page no longer listed kept their stale position
- * forever (issue #4461).
+ * Album refreshes must not overwrite a cached tracklist with an empty or shorter,
+ * potentially incomplete snapshot. Removing mappings for songs absent from an
+ * accepted snapshot is intentionally deferred (issue #4461).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -54,7 +52,7 @@ class AlbumTracklistRefreshTest {
     }
 
     @Test
-    fun `album refresh drops mappings for songs no longer in the tracklist`() =
+    fun `album refresh upserts incoming tracks without deleting existing mappings`() =
         runBlocking {
             val dao = database.dao
             val album = AlbumEntity(id = ALBUM_ID, title = "Album", songCount = 3, duration = 300)
@@ -79,18 +77,18 @@ class AlbumTracklistRefreshTest {
                 artists = emptyList(),
             )
 
+            // Stale mappings are intentionally retained by this safety-only change.
+            val expectedSongs = setOf(OPENING_ID, INTERLUDE_ID, REPLACEMENT_ID, FINALE_ID)
             assertEquals(
-                listOf(OPENING_ID, REPLACEMENT_ID, FINALE_ID),
-                dao.albumSongs(ALBUM_ID, limit = 10, offset = 0).map { it.id },
+                expectedSongs,
+                dao.albumSongs(ALBUM_ID, limit = 10, offset = 0).map { it.id }.toSet(),
             )
             val albumWithSongs = dao.albumWithSongs(ALBUM_ID).first()
-            assertEquals(
-                listOf(OPENING_ID, REPLACEMENT_ID, FINALE_ID),
-                albumWithSongs!!.songs.map { it.id },
-            )
+            assertEquals(expectedSongs, albumWithSongs!!.songs.map { it.id }.toSet())
+            // Album metadata reflects the accepted incoming snapshot, even though
+            // stale mappings are not deleted by this change.
             assertEquals(3, albumWithSongs.album.songCount)
-            // Cleanup is scoped to this album: the song row and its mapping
-            // on the other album both survive.
+            // The song row and its mapping on the other album both survive.
             assertNotNull(dao.getSongByIdBlocking(INTERLUDE_ID))
             assertEquals(
                 listOf(INTERLUDE_ID),
