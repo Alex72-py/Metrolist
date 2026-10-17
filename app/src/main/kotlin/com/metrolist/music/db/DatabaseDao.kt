@@ -1858,15 +1858,8 @@ interface DatabaseDao {
         )
     }
 
-    @Query(
-        """
-        SELECT MAX(
-            COALESCE((SELECT songCount FROM album WHERE id = :albumId), 0),
-            (SELECT COUNT(*) FROM song_album_map WHERE albumId = :albumId)
-        )
-        """,
-    )
-    fun cachedAlbumTrackCount(albumId: String): Int
+    @Query("SELECT COALESCE((SELECT songCount FROM album WHERE id = :albumId), 0)")
+    fun cachedAlbumSongCount(albumId: String): Int
 
     @Transaction
     fun update(
@@ -1877,7 +1870,7 @@ interface DatabaseDao {
         // Read inside this transaction: the caller's album may predate a newer refresh.
         // A shorter snapshot may be an unfinished release, even after pagination ends.
         val incomingCount = albumPage.songs.map { it.id }.distinct().size
-        if (incomingCount == 0 || incomingCount < cachedAlbumTrackCount(album.id)) return
+        if (incomingCount == 0 || incomingCount < cachedAlbumSongCount(album.id)) return
 
         update(
             album.copy(
