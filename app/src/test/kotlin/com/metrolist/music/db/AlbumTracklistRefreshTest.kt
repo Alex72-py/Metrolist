@@ -88,6 +88,15 @@ class AlbumTracklistRefreshTest {
             // Album metadata reflects the accepted incoming snapshot, even though
             // stale mappings are not deleted by this change.
             assertEquals(3, albumWithSongs.album.songCount)
+            // Stale mappings remain, so their count can exceed album.songCount.
+            // That must not block a later same-sized refresh from updating metadata.
+            dao.update(
+                album = album,
+                albumPage = albumPage(OPENING_ID, REPLACEMENT_ID, FINALE_ID, title = "Updated album"),
+                artists = emptyList(),
+            )
+            assertEquals("Updated album", dao.albumWithSongs(ALBUM_ID).first()!!.album.title)
+
             // The song row and its mapping on the other album both survive.
             assertNotNull(dao.getSongByIdBlocking(INTERLUDE_ID))
             assertEquals(
@@ -145,13 +154,13 @@ class AlbumTracklistRefreshTest {
             )
         }
 
-    private fun albumPage(vararg songIds: String) =
+    private fun albumPage(vararg songIds: String, title: String = "Album") =
         AlbumPage(
             album =
                 AlbumItem(
                     browseId = ALBUM_ID,
                     playlistId = "playlist",
-                    title = "Album",
+                    title = title,
                     artists = null,
                     thumbnail = "thumbnail",
                 ),
