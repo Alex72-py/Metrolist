@@ -1867,7 +1867,21 @@ interface DatabaseDao {
     @Query(
         """
         UPDATE song
-        SET albumId = NULL
+        SET albumId = (
+                SELECT song_album_map.albumId
+                FROM song_album_map
+                WHERE song_album_map.songId = song.id
+                ORDER BY song_album_map.`index`
+                LIMIT 1
+            ),
+            albumName = (
+                SELECT album.title
+                FROM song_album_map
+                JOIN album ON album.id = song_album_map.albumId
+                WHERE song_album_map.songId = song.id
+                ORDER BY song_album_map.`index`
+                LIMIT 1
+            )
         WHERE albumId = :albumId
           AND id NOT IN (
               SELECT songId FROM song_album_map WHERE albumId = :albumId
