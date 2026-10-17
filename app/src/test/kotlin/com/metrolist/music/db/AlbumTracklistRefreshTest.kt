@@ -20,6 +20,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,7 +61,15 @@ class AlbumTracklistRefreshTest {
             dao.insert(album)
             dao.insert(otherAlbum)
             listOf(OPENING_ID, INTERLUDE_ID, FINALE_ID, REPLACEMENT_ID).forEach { songId ->
-                dao.insert(SongEntity(id = songId, title = songId, duration = 100))
+                dao.insert(
+                    SongEntity(
+                        id = songId,
+                        title = songId,
+                        duration = 100,
+                        albumId = ALBUM_ID,
+                        albumName = "Album",
+                    ),
+                )
             }
             // Partial tracklist cached while the release was still publishing:
             // a provisional interlude sits where the finale belongs.
@@ -94,6 +103,7 @@ class AlbumTracklistRefreshTest {
 
             // The stale song row and its mapping on the other album both survive.
             assertNotNull(dao.getSongByIdBlocking(INTERLUDE_ID))
+            assertNull(dao.getSongByIdBlocking(INTERLUDE_ID)?.albumId)
             assertEquals(
                 listOf(INTERLUDE_ID),
                 dao.albumSongs(OTHER_ALBUM_ID, limit = 10, offset = 0).map { it.id },
@@ -113,8 +123,8 @@ class AlbumTracklistRefreshTest {
             }
             dao.insert(SongAlbumMap(songId = OPENING_ID, albumId = ALBUM_ID, index = 0))
             dao.insert(SongAlbumMap(songId = FINALE_ID, albumId = ALBUM_ID, index = 1))
-            dao.insert(SongAlbumMap(songId = FINALE_ID, albumId = OTHER_ALBUM_ID, index = 0))
-            dao.insert(SongAlbumMap(songId = OPENING_ID, albumId = OTHER_ALBUM_ID, index = 1))
+            dao.insert(SongAlbumMap(songId = OPENING_ID, albumId = OTHER_ALBUM_ID, index = 0))
+            dao.insert(SongAlbumMap(songId = FINALE_ID, albumId = OTHER_ALBUM_ID, index = 1))
 
             dao.update(
                 album = album,
@@ -126,9 +136,9 @@ class AlbumTracklistRefreshTest {
                 listOf(FINALE_ID, OPENING_ID),
                 dao.albumSongs(ALBUM_ID, limit = 10, offset = 0).map { it.id },
             )
-            // The other album keeps both shared songs with its own order.
+            // The other album keeps its opposite order for the same shared songs.
             assertEquals(
-                listOf(FINALE_ID, OPENING_ID),
+                listOf(OPENING_ID, FINALE_ID),
                 dao.albumSongs(OTHER_ALBUM_ID, limit = 10, offset = 0).map { it.id },
             )
             assertNotNull(dao.getSongByIdBlocking(OPENING_ID))
