@@ -22,8 +22,12 @@ jobs:
         with:
           cache-read-only: true
       - run: chmod +x gradlew
+      - name: Generate debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
       - name: Unit tests and FOSS debug assembly
-        run: ./gradlew --console=plain :innertube:test :app:testFossDebugUnitTest :app:assembleFossDebug --warning-mode summary
+        run: ./gradlew --console=plain --continue :innertube:test :app:testFossDebugUnitTest :app:assembleFossDebug --warning-mode summary
         env:
           PULL_REQUEST: "true"
           GITHUB_EVENT_NAME: ${{ github.event_name }}
