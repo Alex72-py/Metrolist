@@ -124,15 +124,15 @@ class AlbumTracklistRefreshTest {
 
             // The stale song row and its mapping on the other album both survive.
             assertNotNull(dao.getSongByIdBlocking(INTERLUDE_ID))
-            assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(INTERLUDE_ID)?.albumId)
-            assertEquals("Other album", dao.getSongByIdBlocking(INTERLUDE_ID)?.albumName)
-            assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.albumId)
-            assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.albumName)
-            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(UNMAPPED_ID)?.albumId)
-            assertEquals("Album", dao.getSongByIdBlocking(UNMAPPED_ID)?.albumName)
-            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(OPENING_ID)?.albumId)
-            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(FINALE_ID)?.albumId)
-            assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(OTHER_ONLY_ID)?.albumId)
+            assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(INTERLUDE_ID)?.song?.albumId)
+            assertEquals("Other album", dao.getSongByIdBlocking(INTERLUDE_ID)?.song?.albumName)
+            assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.song?.albumId)
+            assertNull(dao.getSongByIdBlocking(STALE_ONLY_ID)?.song?.albumName)
+            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(UNMAPPED_ID)?.song?.albumId)
+            assertEquals("Album", dao.getSongByIdBlocking(UNMAPPED_ID)?.song?.albumName)
+            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(OPENING_ID)?.song?.albumId)
+            assertEquals(ALBUM_ID, dao.getSongByIdBlocking(FINALE_ID)?.song?.albumId)
+            assertEquals(OTHER_ALBUM_ID, dao.getSongByIdBlocking(OTHER_ONLY_ID)?.song?.albumId)
             assertEquals(
                 listOf(INTERLUDE_ID),
                 dao.albumSongs(OTHER_ALBUM_ID, limit = 10, offset = 0).map { it.id },
